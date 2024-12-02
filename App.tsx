@@ -3,116 +3,95 @@
  * https://github.com/facebook/react-native
  *
  * @format
+ * @flow strict-local
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, { useState } from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
+    Alert,
+    Button,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
+import Auth0 from 'react-native-auth0';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+import config from './auth0-configuration';
+const auth0 = new Auth0(config);
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+const App = () => {
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+    let [accessToken, setAccessToken] = useState<string | null>(null);
+    let [userInfo, setUserInfo] = useState<any>(null);
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+    const getUserInfo = async (token: string) => {
+        try {
+            const response = await auth0.auth.userInfo({ token });
+            setUserInfo(response);
+        } catch (error) {
+            console.log('User info error:', error);
+        }
+    };
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+    const onLogin = () => {
+        auth0.webAuth
+            .authorize({
+                scope: 'openid profile email',
+            })
+            .then(credentials => {
+                setAccessToken(credentials.accessToken);
+                getUserInfo(credentials.accessToken);
+            })
+            .catch(error => console.log(error));
+    };
 
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+    const onLogout = () => {
+        auth0.webAuth
+            .clearSession({})
+            .then(() => {
+                setAccessToken(null);
+                setUserInfo(null);
+                Alert.alert('Logged out!');
+            })
+            .catch(() => {
+                console.log('Log out cancelled');
+            });
+    };
+
+    let loggedIn = accessToken !== null;
+    return (
+        <View style={styles.container}>
+            <Text style={styles.header}> Auth0Sample - Login </Text>
+            {userInfo && (
+                <Text style={styles.welcome}>
+                    Welcome, {userInfo.name || userInfo.email}!
+                </Text>
+            )}
+            <Text>You are{loggedIn ? ' ' : ' not '}logged in. </Text>
+            <Button onPress={loggedIn ? onLogout : onLogin}
+                title={loggedIn ? 'Log Out' : 'Log In'} />
+        </View >
+    );
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F5FCFF'
+    },
+    header: {
+        fontSize: 20,
+        textAlign: 'center',
+        margin: 10
+    },
+    welcome: {
+        fontSize: 18,
+        textAlign: 'center',
+        margin: 10,
+        color: '#2196F3'
+    }
 });
 
 export default App;
